@@ -184,7 +184,7 @@ def _kingsheep_iteration(i, ks, player1, player2):
     # sheep1 move
     score_before = ks.score1
     iteration_summary['sheep1'] = {}
-    iteration_summary['sheep1']['state'] = ks.field.copy()
+    iteration_summary['sheep1']['state'] = ks.get_field()
     game_over, move = _compute_move(f_move=player1.move_sheep,
                                     ks=ks,
                                     p_num=1,
@@ -192,13 +192,13 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                     game_over=game_over)
     iteration_summary['sheep1']['move'] = int(move) + 2
     iteration_summary['sheep1']['reward'] = ks.score1 - score_before
-    iteration_summary['sheep1']['next_state'] = ks.field.copy()
+    iteration_summary['sheep1']['next_state'] = ks.get_field()
 
     if not game_over:
         # sheep2 move
         score_before = ks.score2
         iteration_summary['sheep2'] = {}
-        iteration_summary['sheep2']['state'] = ks.field.copy()
+        iteration_summary['sheep2']['state'] = ks.get_field()
         game_over, move = _compute_move(f_move=player2.move_sheep,
                                         ks=ks,
                                         p_num=2,
@@ -206,13 +206,13 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         game_over=game_over)
         iteration_summary['sheep2']['move'] = int(move) + 2
         iteration_summary['sheep2']['reward'] = ks.score2 - score_before
-        iteration_summary['sheep2']['next_state'] = ks.field.copy()
+        iteration_summary['sheep2']['next_state'] = ks.get_field()
 
     if i % 2 == 0 and not game_over:
         # wolf1 move
         score_before = ks.score1
         iteration_summary['wolf1'] = {}
-        iteration_summary['wolf1']['state'] = ks.field.copy()
+        iteration_summary['wolf1']['state'] = ks.get_field()
         game_over, move = _compute_move(f_move=player1.move_wolf,
                                         ks=ks,
                                         p_num=1,
@@ -220,13 +220,13 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         game_over=game_over)
         iteration_summary['wolf1']['move'] = int(move) + 2
         iteration_summary['wolf1']['reward'] = ks.score1 - score_before
-        iteration_summary['wolf1']['next_state'] = ks.field.copy()
+        iteration_summary['wolf1']['next_state'] = ks.get_field()
 
     if i % 2 == 0 and not game_over:
         # wolf2 move
         score_before = ks.score2
         iteration_summary['wolf2'] = {}
-        iteration_summary['wolf2']['state'] = ks.field.copy()
+        iteration_summary['wolf2']['state'] = ks.get_field()
         game_over, move = _compute_move(f_move=player2.move_wolf,
                                         ks=ks,
                                         p_num=2,
@@ -234,6 +234,6 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         game_over=game_over)
         iteration_summary['wolf2']['move'] = int(move) + 2
         iteration_summary['wolf2']['reward'] = ks.score2 - score_before
-        iteration_summary['wolf2']['next_state'] = ks.field.copy()
+        iteration_summary['wolf2']['next_state'] = ks.get_field()
 
     return iteration_summary, game_over

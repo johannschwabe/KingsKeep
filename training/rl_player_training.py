@@ -45,6 +45,7 @@ class RLPlayer:
         else:
             # exploit
             state = self.convert_field_to_state(field=field, device=self.device)
+
             policy_net = self.sheep_policy_net if is_sheep_move else self.wolf_policy_net
             with torch.no_grad():
                 move = policy_net(state).argmax(dim=1).to(self.device)
