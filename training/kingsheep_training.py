@@ -1,5 +1,6 @@
 import copy
 from config import *
+import random
 
 
 class KingsheepEnv:
@@ -24,8 +25,15 @@ class KingsheepEnv:
 class KsField:
     def __init__(self, filepath, name1='Player 1', name2='Player 2'):
         # initialize the field with empty cells.
-        self.field = [[CELL_EMPTY for x in range(FIELD_WIDTH)] for y in range(FIELD_HEIGHT)]
-        self.read_field(filepath)
+        if filepath == "generator":
+            self.field = generate_random_field(0.75, {
+                CELL_FENCE: 3,
+                CELL_RHUBARB: 1,
+                CELL_GRASS: 8
+            })
+        else:
+            self.field = [[CELL_EMPTY for x in range(FIELD_WIDTH)] for y in range(FIELD_HEIGHT)]
+            self.read_field(filepath)
         self.score1 = 0
         self.score2 = 0
         self.grading1 = 0
@@ -48,7 +56,10 @@ class KsField:
         # it first generated a list of all x's in self. field, where figure is in that particular x
         # it then returns the first element (which is the row that contaions the figure),
         # as we know that there is only one of each of these figures
-        x = [x for x in self.field if figure in x][0]
+        x = [x for x in self.field if figure in x]
+        if x == []:
+            return (0, 0)
+        x = x[0]
         return (self.field.index(x), x.index(figure))
 
     def new_position(self, x_old, y_old, move):
@@ -169,6 +180,54 @@ class KsField:
             return False
 
 
+def generate_random_field(entropy, cell_type_counts):
+    """
+    Generate a random kingsheep map.
+
+    Usage:
+    >>> default_counts = {
+            CELL_FENCE: 3,
+            CELL_RHUBARB: 1,
+            CELL_GRASS: 8
+        }
+    >>> generate_random_field(0.5, default_counts)
+
+    :param entropy: A value in the range(0,1]; how close to each other the elements of the same cell type are placed
+    :param cell_type_counts: dictionary of cell_types with their count (divided by 4)
+    :return: a 2d field array
+    """
+    field = [[CELL_EMPTY for _ in range(FIELD_WIDTH)] for _ in range(FIELD_HEIGHT)]
+
+    def next_position(position, length, entropy):
+        next_position = position + int(entropy * random.randrange(-position, length - position))
+        assert next_position in range(length)
+        return next_position
+
+    def place_cells(field, cell_type, count, point_mirror=False, mirror_type=None):
+        mirror_type = mirror_type or cell_type
+        previous_x = random.randrange(0, round(FIELD_WIDTH / 2))
+        previous_y = random.randrange(0, round(FIELD_HEIGHT / 2))
+        for _ in range(count):
+            for _ in range(int(10 / entropy)):
+                x = next_position(previous_x, round(FIELD_WIDTH / 2), entropy)
+                y = next_position(previous_y, round(FIELD_HEIGHT / 2), entropy)
+                if field[y][x] == CELL_EMPTY:
+                    field[y][x] = cell_type
+                    if not point_mirror:
+                        field[y][-(x+1)] = cell_type
+                        field[-(y+1)][x] = cell_type
+                    field[-(y+1)][-(x+1)] = mirror_type
+                    previous_x, previous_y = x, y
+                    break
+
+    for cell_type, count in cell_type_counts.items():
+        place_cells(field, cell_type, count)
+
+    place_cells(field, CELL_SHEEP_1, 1, point_mirror=True, mirror_type=CELL_SHEEP_2)
+    place_cells(field, CELL_WOLF_1, 1, point_mirror=True, mirror_type=CELL_WOLF_2)
+
+    return field
+
 def _compute_move(f_move, ks, p_num, figure, game_over):
     move = f_move(p_num, ks.get_field())
     result_game_over = ks.move(figure, move)
@@ -210,6 +269,7 @@ def _kingsheep_iteration(i, ks, player1, player2):
 
     if i % 2 == 0 and not game_over:
         # wolf1 move
+        distance = dist(ks.get_field(), CELL_SHEEP_2, CELL_WOLF_1)
         score_before = ks.score1
         iteration_summary['wolf1'] = {}
         iteration_summary['wolf1']['state'] = ks.get_field()
@@ -219,11 +279,12 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         figure=CELL_WOLF_1,
                                         game_over=game_over)
         iteration_summary['wolf1']['move'] = int(move) + 2
-        iteration_summary['wolf1']['reward'] = ks.score1 - score_before
+        iteration_summary['wolf1']['reward'] = ks.score1 - score_before - distance
         iteration_summary['wolf1']['next_state'] = ks.get_field()
 
     if i % 2 == 0 and not game_over:
         # wolf2 move
+        distance = dist(ks.get_field(), CELL_SHEEP_1, CELL_WOLF_2)
         score_before = ks.score2
         iteration_summary['wolf2'] = {}
         iteration_summary['wolf2']['state'] = ks.get_field()
@@ -233,7 +294,23 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         figure=CELL_WOLF_2,
                                         game_over=game_over)
         iteration_summary['wolf2']['move'] = int(move) + 2
-        iteration_summary['wolf2']['reward'] = ks.score2 - score_before
+        iteration_summary['wolf2']['reward'] = ks.score2 - score_before - distance
         iteration_summary['wolf2']['next_state'] = ks.get_field()
 
     return iteration_summary, game_over
+def dist(field, sheep, wolf):
+    sheep_position = [0, 0]
+    wolf_position = [0,0]
+    x=0
+    for field_row in field:
+        y = 0
+        for item in field_row:
+            if item == sheep:
+                sheep_position = [x, y]
+            elif item == wolf:
+                wolf_position = (x, y)
+
+            y += 1
+        x += 1
+    distance = abs(sheep_position[1] - wolf_position[1]) + abs(sheep_position[0] - wolf_position[0])
+    return distance

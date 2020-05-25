@@ -29,29 +29,7 @@ class KingsKeep:
         self.device = device
 
     @staticmethod
-    def convert_field_to_state(field, device, figure):
-        if figure == "sheep2" or figure == "wolf2":
-            for line in field:
-                if CELL_SHEEP_2 in line:
-                    index1 = line.index(CELL_SHEEP_2)
-                    line[index1] = "sheep1"
-                if CELL_SHEEP_1 in line:
-                    index2 = line.index(CELL_SHEEP_1)
-                    line[index2] = CELL_SHEEP_2
-
-                if "sheep1" in line:
-                    line[index1] = CELL_SHEEP_1
-
-                if CELL_WOLF_2 in line:
-                    index1 = line.index(CELL_WOLF_2)
-                    line[index1] = "wolf1"
-                if CELL_WOLF_1 in line:
-                    index2 = line.index(CELL_WOLF_1)
-                    line[index2] = CELL_WOLF_2
-
-                if "wolf1" in line:
-                    line[index1] = CELL_WOLF_1
-
+    def convert_field_to_state_sheep(field, device):
         sheep = CELL_SHEEP_1
         wolf = CELL_WOLF_2
         game_features = []
@@ -59,6 +37,7 @@ class KingsKeep:
         food = []
         x = 0
         sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -103,25 +82,31 @@ class KingsKeep:
         game_features.append(s_feature4)
 
         # feature 5-8: moves possible
-        if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB]:
+        if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY,
+                                                                                          CELL_RHUBARB]:
             s_feature5 = 1.0
         else:
             s_feature5 = 0.0
         game_features.append(s_feature5)
 
-        if sheep_position[0] != FIELD_HEIGHT - 1 and field[sheep_position[0] + 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB]:
+        if sheep_position[0] != FIELD_HEIGHT - 1 and field[sheep_position[0] + 1][sheep_position[1]] in [CELL_GRASS,
+                                                                                                         CELL_EMPTY,
+                                                                                                         CELL_RHUBARB]:
             s_feature6 = 1.0
         else:
             s_feature6 = 0.0
         game_features.append(s_feature6)
 
-        if sheep_position[1] != 0 and field[sheep_position[0]][sheep_position[1] - 1] in [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB]:
+        if sheep_position[1] != 0 and field[sheep_position[0]][sheep_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
+                                                                                          CELL_RHUBARB]:
             s_feature7 = 1.0
         else:
             s_feature7 = 0.0
         game_features.append(s_feature7)
 
-        if sheep_position[1] != FIELD_WIDTH - 1 and field[sheep_position[0]][sheep_position[1] + 1] in [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB]:
+        if sheep_position[1] != FIELD_WIDTH - 1 and field[sheep_position[0]][sheep_position[1] + 1] in [CELL_GRASS,
+                                                                                                        CELL_EMPTY,
+                                                                                                        CELL_RHUBARB]:
             s_feature8 = 1.0
         else:
             s_feature8 = 0.0
@@ -141,9 +126,10 @@ class KingsKeep:
                 food_goal = food_item
 
         if food_goal != None:
-            if food_goal != None:
+            res = KingsKeep.astar(field, sheep_position, food_goal, ['.', 'g', 'r'])
+            if res != None and res != []:
 
-                res = KingsKeep.astar(field, sheep_position, food_goal, ['.', 'g', 'r'])[::-1]
+                res = res[::-1]
                 direction = KingsKeep.getDirection(sheep_position, res[0])
 
                 if direction == 1:
@@ -167,9 +153,161 @@ class KingsKeep:
         if food_goal and field[food_goal[0]][food_goal[1]] == CELL_RHUBARB:
             s_feature13 = 1.0
         game_features.append(s_feature13)
-
+        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
+        flat_state = [item for sublist in nested_state for item in sublist]
+        game_features.extend(flat_state)
         return torch.tensor([game_features]).to(device)
 
+
+    @staticmethod
+    def convert_field_to_state_wolf(field, device):
+
+        sheep = CELL_SHEEP_2
+        wolf = CELL_WOLF_1
+        game_features = []
+        # get positions of sheep, wolf and food items
+        food = []
+        x = 0
+        sheep_position = [0, 0]
+        wolf_position = [0, 0]
+        for field_row in field:
+            y = 0
+            for item in field_row:
+                if item == sheep:
+                    sheep_position = [x, y]
+                elif item == wolf:
+                    wolf_position = (x, y)
+                elif item == CELL_RHUBARB or item == CELL_GRASS:
+                    food.append((x, y))
+                y += 1
+            x += 1
+        dist = abs(sheep_position[1] - wolf_position[1]) + abs(sheep_position[0] - wolf_position[0])
+        s_feature0 = float(dist)
+        game_features.append(s_feature0)
+
+        # feature 1: determine if wolf within two steps up
+        if sheep_position[1] - wolf_position[1] < 0:
+            s_feature1 = 1.0
+        else:
+            s_feature1 = 0.0
+        game_features.append(s_feature1)
+
+        # feature 2: determine if wolf within two steps down
+        if sheep_position[1] - wolf_position[1] > 0:
+            s_feature2 = 1.0
+        else:
+            s_feature2 = 0.0
+        game_features.append(s_feature2)
+
+        # feature 3: determine if wolf within two steps left
+        if sheep_position[0] - wolf_position[0] < 0:
+            s_feature3 = 1.0
+        else:
+            s_feature3 = 0.0
+        game_features.append(s_feature3)
+
+        # feature 4: determine if wolf within two steps right
+        if sheep_position[0] - wolf_position[0] > 0:
+            s_feature4 = 1.0
+        else:
+            s_feature4 = 0.0
+        game_features.append(s_feature4)
+
+        # feature 5-8: moves possible
+        if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY,
+                                                                                          CELL_RHUBARB]:
+            s_feature5 = 1.0
+        else:
+            s_feature5 = 0.0
+        game_features.append(s_feature5)
+
+        if sheep_position[0] != FIELD_HEIGHT - 1 and field[sheep_position[0] + 1][sheep_position[1]] in [CELL_GRASS,
+                                                                                                         CELL_EMPTY,
+                                                                                                         CELL_RHUBARB]:
+            s_feature6 = 1.0
+        else:
+            s_feature6 = 0.0
+        game_features.append(s_feature6)
+
+        if sheep_position[1] != 0 and field[sheep_position[0]][sheep_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
+                                                                                          CELL_RHUBARB]:
+            s_feature7 = 1.0
+        else:
+            s_feature7 = 0.0
+        game_features.append(s_feature7)
+
+        if sheep_position[1] != FIELD_WIDTH - 1 and field[sheep_position[0]][sheep_position[1] + 1] in [CELL_GRASS,
+                                                                                                        CELL_EMPTY,
+                                                                                                        CELL_RHUBARB]:
+            s_feature8 = 1.0
+        else:
+            s_feature8 = 0.0
+        game_features.append(s_feature8)
+
+        direction = 10
+        if sheep_position[0] == 0 and sheep_position[1] == 0:
+            res = KingsKeep.astar(field, wolf_position, sheep_position, ['.', 'g', 'r', CELL_SHEEP_2])
+            if res is not None and res != []:
+                res = res[::-1]
+                direction = KingsKeep.getDirection(sheep_position, res[0])
+
+        s_feature9 = 0.0
+        s_feature10 = 0.0
+        s_feature11 = 0.0
+        s_feature12 = 0.0
+
+        if direction == 1:
+            s_feature9 = 1.0
+
+        if direction == -1:
+            s_feature10 = 1.0
+
+        if direction == 2:
+            s_feature11 = 1.0
+
+        if direction == -2:
+            s_feature12 = 1.0
+
+        game_features.append(s_feature9)
+        game_features.append(s_feature10)
+        game_features.append(s_feature11)
+        game_features.append(s_feature12)
+        game_features.append(0)
+        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
+        flat_state = [item for sublist in nested_state for item in sublist]
+        game_features.extend(flat_state)
+        return torch.tensor([game_features]).to(device)
+
+
+
+    @staticmethod
+    def convert_field_to_state(field, device, figure):
+        if figure == "sheep2" or figure == "wolf2":
+            for line in field:
+                if CELL_SHEEP_2 in line:
+                    index1 = line.index(CELL_SHEEP_2)
+                    line[index1] = "sheep1"
+                if CELL_SHEEP_1 in line:
+                    index2 = line.index(CELL_SHEEP_1)
+                    line[index2] = CELL_SHEEP_2
+
+                if "sheep1" in line:
+                    line[index1] = CELL_SHEEP_1
+
+                if CELL_WOLF_2 in line:
+                    index1 = line.index(CELL_WOLF_2)
+                    line[index1] = "wolf1"
+                if CELL_WOLF_1 in line:
+                    index2 = line.index(CELL_WOLF_1)
+                    line[index2] = CELL_WOLF_2
+
+                if "wolf1" in line:
+                    line[index1] = CELL_WOLF_1
+
+        if figure == "sheep1" or figure == "sheep2":
+            return KingsKeep.convert_field_to_state_sheep(field, device)
+        else:
+            return KingsKeep.convert_field_to_state_wolf(field, device)
     @staticmethod
     def convert_field_to_state2(states, device, figure, batch_size):
 
@@ -204,6 +342,7 @@ class KingsKeep:
 
     def move_wolf(self, p_num, field):
         return self.compute_move(field=field, is_sheep_move=False)
+
     @staticmethod
     def astar(array, start, goal, valid):
         startPosi = (start[0], start[1])
