@@ -7,7 +7,7 @@ FIELD_HEIGHT = 15
 
 #[Game_Constants]
 N_ITERATIONS = 100
-MAX_PLAYER_TIME = 100
+MAX_PLAYER_TIME = 1000
 
 #[Field_Constants]
 CELL_EMPTY = '.'

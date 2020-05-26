@@ -15,8 +15,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from kingsheep_training import KingsheepEnv
-from joschwa_training import KingsKeep
-from simple_player2 import SimplePlayer
+from Joschwa_A3_training import KingsKeep
+from simple_player import SimplePlayer
 from config import FIELD_WIDTH, FIELD_HEIGHT
 
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -26,14 +26,11 @@ if is_ipython: from IPython import display
 class DQN(nn.Module):
     def __init__(self, n_inputs):
         super().__init__()
-
+    
         self.fc1 = nn.Linear(in_features=n_inputs, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=512)
-        self.fc4 = nn.Linear(in_features=512, out_features=512)
-        self.fc5 = nn.Linear(in_features=512, out_features=512)
-        self.fc6 = nn.Linear(in_features=512, out_features=512)
-        self.fc7 = nn.Linear(in_features=512, out_features=64)
+        self.fc4 = nn.Linear(in_features=512, out_features=64)
         self.out = nn.Linear(in_features=64, out_features=5)
 
     def forward(self, t):
@@ -42,9 +39,6 @@ class DQN(nn.Module):
         t = F.relu(self.fc2(t))
         t = F.relu(self.fc3(t))
         t = F.relu(self.fc4(t))
-        t = F.relu(self.fc5(t))
-        t = F.relu(self.fc6(t))
-        t = F.relu(self.fc7(t))
         t = self.out(t)
         return t
 
@@ -176,12 +170,12 @@ class QValues:
 
 
 batch_size = 256
-gamma = 0.75
+gamma = 0.3
 eps_start = 1
 eps_end = 0.01
-eps_decay = 0.0005
+eps_decay = 0.00005
 target_update = 10
-memory_size = 1000000
+memory_size = 10000000
 lr = 0.001
 num_episodes = 1000
 
@@ -189,8 +183,8 @@ num_episodes = 1000
 strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 device = torch.device("cuda")
 
-input_size_sheep = 299
-input_size_wolf = 299
+input_size_sheep = 19
+input_size_wolf = 14
 
 sheep_policy_net = DQN(input_size_sheep).to(device)
 #sheep_policy_net.load_state_dict(torch.load('rlplayer_sheep_model.pt'))
@@ -223,8 +217,7 @@ player2 = SimplePlayer()
 
 is_p1_rl = True
 
-for x in range(100):
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
+for x in range(50):
     player1 = KingsKeep(sheep_policy_net=sheep_policy_net,
                         wolf_policy_net=wolf_policy_net,
                         strategy=strategy,
@@ -298,8 +291,8 @@ for x in range(100):
                                               [sheep_target_net, wolf_target_net]):
                 target_net.load_state_dict(policy_net.state_dict())
 
-torch.save(sheep_policy_net.state_dict(), 'rlplayer_sheep_model.pt')
-torch.save(wolf_policy_net.state_dict(), 'rlplayer_wolf_model.pt')
+    torch.save(sheep_policy_net.state_dict(), 'rlplayer_sheep_model2.pt')
+    torch.save(wolf_policy_net.state_dict(), 'rlplayer_wolf_model2.pt')
 
 
 

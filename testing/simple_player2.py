@@ -26,6 +26,8 @@ class SimplePlayer:
 
         # get positions of sheep, wolf and food items
         x = 0
+        sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -36,8 +38,11 @@ class SimplePlayer:
                 y += 1
             x += 1
 
-        res = SimplePlayer.astar(field,sheep_position, SimplePlayer.closest_goal(sheep_position,field),[CELL_GRASS, CELL_EMPTY, CELL_RHUBARB])[::-1]
-        return SimplePlayer.getDirection(sheep_position,res[0]), p_state
+        res = SimplePlayer.astar(field,sheep_position, SimplePlayer.closest_goal(sheep_position,field),[CELL_GRASS, CELL_EMPTY, CELL_RHUBARB])
+        if res != None and res!=[]:
+            res = res[::-1]
+            return SimplePlayer.getDirection(sheep_position,res[0]), p_state
+        return 0, p_state
 
 
     def move_wolf(self, p_num, p_state, p_time_remaining, field):
@@ -50,6 +55,8 @@ class SimplePlayer:
 
         # get positions of sheep, wolf and food items
         x = 0
+        sheep_position=[0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -62,9 +69,11 @@ class SimplePlayer:
 
 
         res = SimplePlayer.astar(field, wolf_position,sheep_position,
-                                 [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB, sheep])[::-1]
-
-        return SimplePlayer.getDirection(wolf_position, res[0]), p_state
+                                 [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB, sheep])
+        if res != None and res!=[]:
+            res = res[::-1]
+            return SimplePlayer.getDirection(wolf_position, res[0]), p_state
+        return 0, p_state
 
     @staticmethod
     def astar(array, start, goal, valid):
@@ -151,6 +160,7 @@ class SimplePlayer:
 
         # determine closest item and return
         distance = 1000
+        final_goal = [0,0]
         for possible_goal in possible_goals:
             if (abs(possible_goal[0] - sheep_position[0]) + abs(possible_goal[1] - sheep_position[1])) < distance:
                 distance = abs(possible_goal[0] - sheep_position[0]) + abs(possible_goal[1] - sheep_position[1])

@@ -153,9 +153,36 @@ class KingsKeep:
         if food_goal and field[food_goal[0]][food_goal[1]] == CELL_RHUBARB:
             s_feature13 = 1.0
         game_features.append(s_feature13)
-        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
-        flat_state = [item for sublist in nested_state for item in sublist]
-        game_features.extend(flat_state)
+
+        subField = []
+
+        for x in range(7):
+            for y in range(9):
+                count = 0
+                x_field = 1+2*x
+                y_field = 1+2*y
+                count += KingsKeep.award(field[x_field - 1][y_field - 1])
+                count += KingsKeep.award(field[x_field][y_field - 1])
+                count += KingsKeep.award(field[x_field + 1][y_field - 1])
+                count += KingsKeep.award(field[x_field - 1][y_field])
+                count += KingsKeep.award(field[x_field][y_field])
+                count += KingsKeep.award(field[x_field + 1][y_field])
+                count += KingsKeep.award(field[x_field - 1][y_field + 1])
+                count += KingsKeep.award(field[x_field][y_field + 1])
+                count += KingsKeep.award(field[x_field + 1][y_field + 1])
+                subField.append(count)
+
+        dir_x = float(sheep_position[0] - wolf_position[0])
+        dir_y = float(sheep_position[1] - wolf_position[1])
+        game_features.append(dir_x)
+        game_features.append(dir_y)
+        game_features.extend(subField)
+
+        pos_x = sheep_position[0]
+        pos_y = sheep_position[1]
+        game_features.append(pos_x)
+        game_features.append(pos_y)
+
         return torch.tensor([game_features]).to(device)
 
 
@@ -214,14 +241,14 @@ class KingsKeep:
         game_features.append(s_feature4)
 
         # feature 5-8: moves possible
-        if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY,
+        if wolf_position[0] != 0 and field[wolf_position[0] - 1][wolf_position[1]] in [CELL_GRASS, CELL_EMPTY,
                                                                                           CELL_RHUBARB]:
             s_feature5 = 1.0
         else:
             s_feature5 = 0.0
         game_features.append(s_feature5)
 
-        if sheep_position[0] != FIELD_HEIGHT - 1 and field[sheep_position[0] + 1][sheep_position[1]] in [CELL_GRASS,
+        if wolf_position[0] != FIELD_HEIGHT - 1 and field[wolf_position[0] + 1][wolf_position[1]] in [CELL_GRASS,
                                                                                                          CELL_EMPTY,
                                                                                                          CELL_RHUBARB]:
             s_feature6 = 1.0
@@ -229,14 +256,14 @@ class KingsKeep:
             s_feature6 = 0.0
         game_features.append(s_feature6)
 
-        if sheep_position[1] != 0 and field[sheep_position[0]][sheep_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
+        if wolf_position[1] != 0 and field[wolf_position[0]][wolf_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
                                                                                           CELL_RHUBARB]:
             s_feature7 = 1.0
         else:
             s_feature7 = 0.0
         game_features.append(s_feature7)
 
-        if sheep_position[1] != FIELD_WIDTH - 1 and field[sheep_position[0]][sheep_position[1] + 1] in [CELL_GRASS,
+        if wolf_position[1] != FIELD_WIDTH - 1 and field[wolf_position[0]][wolf_position[1] + 1] in [CELL_GRASS,
                                                                                                         CELL_EMPTY,
                                                                                                         CELL_RHUBARB]:
             s_feature8 = 1.0
@@ -245,7 +272,7 @@ class KingsKeep:
         game_features.append(s_feature8)
 
         direction = 10
-        if sheep_position[0] == 0 and sheep_position[1] == 0:
+        if sheep_position[0] != 0 and sheep_position[1] != 0:
             res = KingsKeep.astar(field, wolf_position, sheep_position, ['.', 'g', 'r', CELL_SHEEP_2])
             if res is not None and res != []:
                 res = res[::-1]
@@ -273,9 +300,6 @@ class KingsKeep:
         game_features.append(s_feature11)
         game_features.append(s_feature12)
         game_features.append(0)
-        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
-        flat_state = [item for sublist in nested_state for item in sublist]
-        game_features.extend(flat_state)
         return torch.tensor([game_features]).to(device)
 
 
@@ -319,7 +343,7 @@ class KingsKeep:
         return torch.tensor([processed_states]).to(device)
 
 
-    def compute_move(self, field, is_sheep_move):
+    def compute_move(self, field, is_sheep_move, p_num):
         rate = self.strategy.get_exploration_rate(self.current_step)
         self.current_step += 1
 
@@ -329,7 +353,11 @@ class KingsKeep:
             move = torch.tensor([action]).to(self.device)
         else:
             # exploit
-            state = self.convert_field_to_state(field=field, device=self.device, figure="sheep1")
+            if is_sheep_move:
+
+                state = self.convert_field_to_state(field=field, device=self.device, figure="sheep"+ str(p_num))
+            else:
+                state = self.convert_field_to_state(field=field, device=self.device, figure="wolf"+ str(p_num))
 
             policy_net = self.sheep_policy_net if is_sheep_move else self.wolf_policy_net
             with torch.no_grad():
@@ -338,10 +366,10 @@ class KingsKeep:
         return int(move) - 2
 
     def move_sheep(self, p_num, field):
-        return self.compute_move(field=field, is_sheep_move=True)
+        return self.compute_move(field=field, is_sheep_move=True, p_num=p_num)
 
     def move_wolf(self, p_num, field):
-        return self.compute_move(field=field, is_sheep_move=False)
+        return self.compute_move(field=field, is_sheep_move=False, p_num=p_num)
 
     @staticmethod
     def astar(array, start, goal, valid):
@@ -409,3 +437,12 @@ class KingsKeep:
             return MOVE_UP
         if delta_x == -1 and delta_y == 0:
             return MOVE_DOWN
+
+    @staticmethod
+    def award(figure):
+        if figure == CELL_RHUBARB:
+            return AWARD_RHUBARB
+        elif figure == CELL_GRASS:
+            return AWARD_GRASS
+        else:
+            return 0

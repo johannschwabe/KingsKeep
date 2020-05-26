@@ -24,6 +24,7 @@ FIELD_ELEMENTS_MAPPER = {FIELD_ELEMENTS[i]: float(i) for i in list(range(len(FIE
 def get_class_name():
     return 'RLPlayer'
 
+
 class DQN(nn.Module):
     def __init__(self, n_inputs):
         super().__init__()
@@ -31,10 +32,12 @@ class DQN(nn.Module):
         self.fc1 = nn.Linear(in_features=n_inputs, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=512)
-        self.fc4 = nn.Linear(in_features=512, out_features=512)
-        self.fc5 = nn.Linear(in_features=512, out_features=512)
-        self.fc6 = nn.Linear(in_features=512, out_features=512)
-        self.fc7 = nn.Linear(in_features=512, out_features=64)
+        self.fc7 = nn.Linear(in_features=512, out_features=512)
+        self.fc14 = nn.Linear(in_features=512, out_features=512)
+        self.fc15 = nn.Linear(in_features=512, out_features=512)
+        self.fc16 = nn.Linear(in_features=512, out_features=512)
+        self.fc17 = nn.Linear(in_features=512, out_features=512)
+        self.fc18 = nn.Linear(in_features=512, out_features=64)
         self.out = nn.Linear(in_features=64, out_features=5)
 
     def forward(self, t):
@@ -42,10 +45,13 @@ class DQN(nn.Module):
         t = F.relu(self.fc1(t))
         t = F.relu(self.fc2(t))
         t = F.relu(self.fc3(t))
-        t = F.relu(self.fc4(t))
-        t = F.relu(self.fc5(t))
-        t = F.relu(self.fc6(t))
         t = F.relu(self.fc7(t))
+        t = F.relu(self.fc14(t))
+        t = F.relu(self.fc15(t))
+        t = F.relu(self.fc16(t))
+        t = F.relu(self.fc17(t))
+        t = F.relu(self.fc18(t))
+
         t = self.out(t)
         return t
 
@@ -67,6 +73,7 @@ class KingsKeep:
         food = []
         x = 0
         sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -75,40 +82,14 @@ class KingsKeep:
                 elif item == wolf:
                     wolf_position = (x, y)
                 elif item == CELL_RHUBARB or item == CELL_GRASS:
-                    food.append((x, y))
+                    food.append((x, y, item))
                 y += 1
             x += 1
         dist = abs(sheep_position[1] - wolf_position[1]) + abs(sheep_position[0] - wolf_position[0])
         s_feature0 = float(dist)
         game_features.append(s_feature0)
 
-        # feature 1: determine if wolf within two steps up
-        if sheep_position[1] - wolf_position[1] < 0:
-            s_feature1 = 1.0
-        else:
-            s_feature1 = 0.0
-        game_features.append(s_feature1)
 
-        # feature 2: determine if wolf within two steps down
-        if sheep_position[1] - wolf_position[1] > 0:
-            s_feature2 = 1.0
-        else:
-            s_feature2 = 0.0
-        game_features.append(s_feature2)
-
-        # feature 3: determine if wolf within two steps left
-        if sheep_position[0] - wolf_position[0] < 0:
-            s_feature3 = 1.0
-        else:
-            s_feature3 = 0.0
-        game_features.append(s_feature3)
-
-        # feature 4: determine if wolf within two steps right
-        if sheep_position[0] - wolf_position[0] > 0:
-            s_feature4 = 1.0
-        else:
-            s_feature4 = 0.0
-        game_features.append(s_feature4)
 
         # feature 5-8: moves possible
         if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY,
@@ -148,16 +129,24 @@ class KingsKeep:
         # determine closest food:
         food_distance = 1000
         food_goal = None
+        food_distance_shroom = 1000
+        food_goal_shroom = None
         for food_item in food:
             distance = abs(food_item[0] - sheep_position[0]) + abs(food_item[1] - sheep_position[1])
-            if distance < food_distance:
-                food_distance = distance
-                food_goal = food_item
+            if food_item[2] == CELL_GRASS:
+                if distance < food_distance:
+                    food_distance = distance
+                    food_goal = food_item
+            else:
+                if distance < food_distance_shroom:
+                    food_distance_shroom = distance
+                    food_goal_shroom = food_item
 
         if food_goal != None:
             res = KingsKeep.astar(field, sheep_position, food_goal, ['.', 'g', 'r'])
-            if res != None:
-
+            if res != None and res != []:
+                s_feature1 = res.__len__()
+                game_features.append(s_feature1)
                 res = res[::-1]
                 direction = KingsKeep.getDirection(sheep_position, res[0])
 
@@ -178,20 +167,54 @@ class KingsKeep:
         game_features.append(s_feature11)
         game_features.append(s_feature12)
 
-        s_feature13 = 0.0
-        if food_goal and field[food_goal[0]][food_goal[1]] == CELL_RHUBARB:
-            s_feature13 = 1.0
-        game_features.append(s_feature13)
-        print(game_features)
-        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
-        flat_state = [item for sublist in nested_state for item in sublist]
-        game_features.extend(flat_state)
+        s_feature3 = 0.0
+        s_feature4 = 0.0
+        s_feature41 = 0.0
+        s_feature42 = 0.0
+
+        if food_goal_shroom != None:
+            res = KingsKeep.astar(field, sheep_position, food_goal_shroom, ['.', 'g', 'r'])
+            if res != None and res != []:
+                s_feature2 = res.__len__()
+                game_features.append(s_feature2)
+                res = res[::-1]
+                direction = KingsKeep.getDirection(sheep_position, res[0])
+
+                if direction == 1:
+                    s_feature3 = 1.0
+
+                if direction == -1:
+                    s_feature4 = 1.0
+
+                if direction == 2:
+                    s_feature41 = 1.0
+
+                if direction == -2:
+                    s_feature42 = 1.0
+
+        game_features.append(s_feature3)
+        game_features.append(s_feature4)
+        game_features.append(s_feature41)
+        game_features.append(s_feature42)
+
+
+
+        dir_x = float(sheep_position[0] - wolf_position[0])
+        dir_y = float(sheep_position[1] - wolf_position[1])
+
+        game_features.append(dir_x)
+        game_features.append(dir_y)
+
+
+        pos_x = sheep_position[0]
+        pos_y = sheep_position[1]
+        game_features.append(pos_x)
+        game_features.append(pos_y)
+
         return torch.tensor([game_features]).to(device)
 
     @staticmethod
     def convert_field_to_state_wolf(field, device):
-        for x in field:
-            print(x, sep=" ")
         sheep = CELL_SHEEP_2
         wolf = CELL_WOLF_1
         game_features = []
@@ -199,6 +222,7 @@ class KingsKeep:
         food = []
         x = 0
         sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -243,40 +267,40 @@ class KingsKeep:
         game_features.append(s_feature4)
 
         # feature 5-8: moves possible
-        if sheep_position[0] != 0 and field[sheep_position[0] - 1][sheep_position[1]] in [CELL_GRASS, CELL_EMPTY,
-                                                                                          CELL_RHUBARB]:
+        if wolf_position[0] != 0 and field[wolf_position[0] - 1][wolf_position[1]] in [CELL_GRASS, CELL_EMPTY,
+                                                                                       CELL_RHUBARB]:
             s_feature5 = 1.0
         else:
             s_feature5 = 0.0
         game_features.append(s_feature5)
 
-        if sheep_position[0] != FIELD_HEIGHT - 1 and field[sheep_position[0] + 1][sheep_position[1]] in [CELL_GRASS,
-                                                                                                         CELL_EMPTY,
-                                                                                                         CELL_RHUBARB]:
+        if wolf_position[0] != FIELD_HEIGHT - 1 and field[wolf_position[0] + 1][wolf_position[1]] in [CELL_GRASS,
+                                                                                                      CELL_EMPTY,
+                                                                                                      CELL_RHUBARB]:
             s_feature6 = 1.0
         else:
             s_feature6 = 0.0
         game_features.append(s_feature6)
 
-        if sheep_position[1] != 0 and field[sheep_position[0]][sheep_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
-                                                                                          CELL_RHUBARB]:
+        if wolf_position[1] != 0 and field[wolf_position[0]][wolf_position[1] - 1] in [CELL_GRASS, CELL_EMPTY,
+                                                                                       CELL_RHUBARB]:
             s_feature7 = 1.0
         else:
             s_feature7 = 0.0
         game_features.append(s_feature7)
 
-        if sheep_position[1] != FIELD_WIDTH - 1 and field[sheep_position[0]][sheep_position[1] + 1] in [CELL_GRASS,
-                                                                                                        CELL_EMPTY,
-                                                                                                        CELL_RHUBARB]:
+        if wolf_position[1] != FIELD_WIDTH - 1 and field[wolf_position[0]][wolf_position[1] + 1] in [CELL_GRASS,
+                                                                                                     CELL_EMPTY,
+                                                                                                     CELL_RHUBARB]:
             s_feature8 = 1.0
         else:
             s_feature8 = 0.0
         game_features.append(s_feature8)
 
         direction = 10
-        if sheep_position[0] == 0 and sheep_position[1] == 0:
+        if sheep_position[0] != 0 and sheep_position[1] != 0:
             res = KingsKeep.astar(field, wolf_position, sheep_position, ['.', 'g', 'r', CELL_SHEEP_2])
-            if res is not None:
+            if res is not None and res != []:
                 res = res[::-1]
                 direction = KingsKeep.getDirection(sheep_position, res[0])
 
@@ -302,9 +326,6 @@ class KingsKeep:
         game_features.append(s_feature11)
         game_features.append(s_feature12)
         game_features.append(0)
-        nested_state = [[FIELD_ELEMENTS_MAPPER[j] for j in i] for i in field]
-        flat_state = [item for sublist in nested_state for item in sublist]
-        game_features.extend(flat_state)
         return torch.tensor([game_features]).to(device)
 
     @staticmethod
@@ -342,14 +363,14 @@ class KingsKeep:
 
     def get_sheep_model(self):
         file_path = pathlib.Path(__file__).parent.absolute().joinpath('rlplayer_sheep_model.pt')
-        model = DQN(n_inputs=299)
+        model = DQN(n_inputs=81)
         model.load_state_dict(torch.load(file_path, map_location=torch.device('cpu')))
         model.eval()
         return model
 
     def get_wolf_model(self):
-        file_path = pathlib.Path(__file__).parent.absolute().joinpath('rlplayer_wolf_model.pt')
-        model = DQN(n_inputs=299)
+        file_path = pathlib.Path(__file__).parent.absolute().joinpath('joschwa_model_wolf.pt')
+        model = DQN(n_inputs=14)
         model.load_state_dict(torch.load(file_path, map_location=torch.device('cpu')))
         model.eval()
         return model
@@ -367,6 +388,7 @@ class KingsKeep:
         state = self.convert_field_to_state(field=field, device=p_state['device'], figure=sheep)
         with torch.no_grad():
             move = p_state['sheep_model'](state).argmax(dim=1).to(p_state['device'])
+        print(int(move) - 2)
         return int(move) - 2, p_state
 
     def move_wolf(self, p_num, p_state, p_time_remaining, field):
@@ -384,6 +406,8 @@ class KingsKeep:
         state = self.convert_field_to_state(field=field, device=p_state['device'], figure=wolf)
         with torch.no_grad():
             move = p_state['wolf_model'](state).argmax(dim=1).to(p_state['device'])
+        print(int(move) - 2)
+
         return int(move) - 2, p_state
 
     @staticmethod
@@ -452,3 +476,13 @@ class KingsKeep:
             return MOVE_UP
         if delta_x == -1 and delta_y == 0:
             return MOVE_DOWN
+
+
+    @staticmethod
+    def award(figure):
+        if figure == CELL_RHUBARB:
+            return AWARD_RHUBARB
+        elif figure == CELL_GRASS:
+            return AWARD_GRASS
+        else:
+            return 0

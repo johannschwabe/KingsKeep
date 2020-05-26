@@ -26,6 +26,8 @@ class SimplePlayer:
 
         # get positions of sheep, wolf and food items
         x = 0
+        sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             y = 0
             for item in field_row:
@@ -158,7 +160,7 @@ class SimplePlayer:
 
         # determine closest item and return
         distance = 1000
-        final_goal=[0,0]
+        final_goal = [0,0]
         for possible_goal in possible_goals:
             if (abs(possible_goal[0] - sheep_position[0]) + abs(possible_goal[1] - sheep_position[1])) < distance:
                 distance = abs(possible_goal[0] - sheep_position[0]) + abs(possible_goal[1] - sheep_position[1])

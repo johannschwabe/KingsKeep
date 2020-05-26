@@ -1,6 +1,6 @@
 import copy
-from config import *
 import random
+from config import *
 
 
 class KingsheepEnv:
@@ -157,16 +157,24 @@ class KsField:
                 elif figure == CELL_WOLF_1:
                     if target_figure == CELL_SHEEP_2:
                         self.field[x_new][y_new] = CELL_SHEEP_2_d
-                        self.score1 += self.score2
-                        self.score2 = -1
+                        self.score1 += self.score2 + 100
+                        self.score2 = -10
                         return True
+                    else:
+                        shp = self.get_position(CELL_SHEEP_2)
+                        self.score1 -= (34 - manhattanDistance(shp, (x_old, y_old)))
+                        self.score1 += (34 - manhattanDistance(shp, (x_new, y_new)))
 
                 elif figure == CELL_WOLF_2:
                     if target_figure == CELL_SHEEP_1:
                         self.field[x_new][y_new] = CELL_SHEEP_1_d
-                        self.score2 += self.score1
-                        self.score1 = -1
+                        self.score2 += self.score1 + 100
+                        self.score1 = -10
                         return True
+                    else:
+                        shp = self.get_position(CELL_SHEEP_1)
+                        self.score2 -= (34 - manhattanDistance(shp, (x_old, y_old)))
+                        self.score2 += (34 - manhattanDistance(shp, (x_new, y_new)))
 
                 # actual figure move
                 self.field[x_new][y_new] = figure
@@ -179,11 +187,9 @@ class KsField:
         else:  # if move = none
             return False
 
-
 def generate_random_field(entropy, cell_type_counts):
     """
     Generate a random kingsheep map.
-
     Usage:
     >>> default_counts = {
             CELL_FENCE: 3,
@@ -191,7 +197,6 @@ def generate_random_field(entropy, cell_type_counts):
             CELL_GRASS: 8
         }
     >>> generate_random_field(0.5, default_counts)
-
     :param entropy: A value in the range(0,1]; how close to each other the elements of the same cell type are placed
     :param cell_type_counts: dictionary of cell_types with their count (divided by 4)
     :return: a 2d field array
@@ -227,6 +232,9 @@ def generate_random_field(entropy, cell_type_counts):
     place_cells(field, CELL_WOLF_1, 1, point_mirror=True, mirror_type=CELL_WOLF_2)
 
     return field
+
+def manhattanDistance(a, b):
+    return (abs(a[0] - b[0]) + abs(a[1] - b[1]))
 
 def _compute_move(f_move, ks, p_num, figure, game_over):
     move = f_move(p_num, ks.get_field())
@@ -269,7 +277,6 @@ def _kingsheep_iteration(i, ks, player1, player2):
 
     if i % 2 == 0 and not game_over:
         # wolf1 move
-        distance = dist(ks.get_field(), CELL_SHEEP_2, CELL_WOLF_1)
         score_before = ks.score1
         iteration_summary['wolf1'] = {}
         iteration_summary['wolf1']['state'] = ks.get_field()
@@ -279,12 +286,11 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         figure=CELL_WOLF_1,
                                         game_over=game_over)
         iteration_summary['wolf1']['move'] = int(move) + 2
-        iteration_summary['wolf1']['reward'] = ks.score1 - score_before - distance
+        iteration_summary['wolf1']['reward'] = ks.score1 - score_before
         iteration_summary['wolf1']['next_state'] = ks.get_field()
 
     if i % 2 == 0 and not game_over:
         # wolf2 move
-        distance = dist(ks.get_field(), CELL_SHEEP_1, CELL_WOLF_2)
         score_before = ks.score2
         iteration_summary['wolf2'] = {}
         iteration_summary['wolf2']['state'] = ks.get_field()
@@ -294,23 +300,7 @@ def _kingsheep_iteration(i, ks, player1, player2):
                                         figure=CELL_WOLF_2,
                                         game_over=game_over)
         iteration_summary['wolf2']['move'] = int(move) + 2
-        iteration_summary['wolf2']['reward'] = ks.score2 - score_before - distance
+        iteration_summary['wolf2']['reward'] = ks.score2 - score_before
         iteration_summary['wolf2']['next_state'] = ks.get_field()
 
     return iteration_summary, game_over
-def dist(field, sheep, wolf):
-    sheep_position = [0, 0]
-    wolf_position = [0,0]
-    x=0
-    for field_row in field:
-        y = 0
-        for item in field_row:
-            if item == sheep:
-                sheep_position = [x, y]
-            elif item == wolf:
-                wolf_position = (x, y)
-
-            y += 1
-        x += 1
-    distance = abs(sheep_position[1] - wolf_position[1]) + abs(sheep_position[0] - wolf_position[0])
-    return distance

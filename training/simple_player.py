@@ -46,6 +46,8 @@ class SimplePlayer:
         # get positions of sheep, wolf and food items
         food = []
         y = 0
+        sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
             x = 0
             for item in field_row:
@@ -94,6 +96,7 @@ class SimplePlayer:
         # determine closest food:
         food_distance = 1000
         food_goal = None
+
         for food_item in food:
             distance = abs(food_item[0] - sheep_position[0]) + abs(food_item[1] - sheep_position[1])
             if distance < food_distance:
@@ -130,15 +133,6 @@ class SimplePlayer:
         return int(result)
 
     def move_wolf(self, p_num, field):
-        if not self.wolf_model:
-            self.wolf_model = self.get_wolf_model()
-
-        wolf_model = self.wolf_model
-
-        # create empty feature array for this game state
-        game_features = []
-        X_wolf = []
-
         if p_num == 1:
             sheep = CELL_SHEEP_2
             wolf = CELL_WOLF_1
@@ -147,48 +141,89 @@ class SimplePlayer:
             wolf = CELL_WOLF_2
 
         # get positions of sheep, wolf and food items
-        y = 0
+        x = 0
+        sheep_position = [0, 0]
+        wolf_position = [0, 0]
         for field_row in field:
-            x = 0
+            y = 0
             for item in field_row:
                 if item == sheep:
                     sheep_position = (x, y)
                 elif item == wolf:
                     wolf_position = (x, y)
-                x += 1
-            y += 1
+                y += 1
+            x += 1
 
-        # feature 1: determine if the sheep is above the wolf
-        if wolf_position[1] - sheep_position[1] > 0:
-            w_feature1 = 1
-        else:
-            w_feature1 = 0
-        game_features.append(w_feature1)
+        res = SimplePlayer.astar(field, wolf_position, sheep_position,
+                                 [CELL_GRASS, CELL_EMPTY, CELL_RHUBARB, sheep])
+        if res != None and res != []:
+            res = res[::-1]
+            return SimplePlayer.getDirection(wolf_position, res[0])
+        return 0
 
-        # feature 2: determine if the sheep is below the wolf
-        if wolf_position[1] - sheep_position[1] < 0:
-            w_feature2 = 1
-        else:
-            w_feature2 = 0
-        game_features.append(w_feature2)
+    @staticmethod
+    def astar(array, start, goal, valid):
+        startPosi = (start[0], start[1])
+        neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0), ]
 
-        # feature 3: determine if the sheep is left of the wolf
-        if wolf_position[0] - sheep_position[0] > 0:
-            w_feature3 = 1
-        else:
-            w_feature3 = 0
-        game_features.append(w_feature3)
+        close_set = set()
 
-        # feature 4: determine if the sheep is right of the wolf
-        if wolf_position[0] - sheep_position[0] < 0:
-            w_feature4 = 1
-        else:
-            w_feature4 = 0
-        game_features.append(w_feature4)
+        came_from = {}
 
-        # add features and move to X_wolf and Y_wolf
-        X_wolf.append(game_features)
+        gscore = {startPosi: 0}
 
-        result = wolf_model.predict(X_wolf)
+        fscore = {startPosi: ((goal[0] - startPosi[0]) ** 2 + (goal[1] - startPosi[1]) ** 2) ** 0.5}
 
-        return int(result)
+        oheap = []
+
+        oheap.insert(0, (fscore[startPosi], startPosi))
+
+        while oheap:
+            oheap.sort(key=lambda dist: dist[0])
+            current = oheap.pop(0)[1]
+
+            if current[0] == goal[0] and current[1] == goal[1]:
+
+                data = []
+
+                while current in came_from:
+                    data.append(current)
+
+                    current = came_from[current]
+                return data
+
+            close_set.add(current)
+
+            for i, j in neighbors:
+
+                neighbor = current[0] + i, current[1] + j
+                tentative_g_score = gscore[current] + 1
+
+                if not (0 <= neighbor[0] < FIELD_HEIGHT) or not (0 <= neighbor[1] < FIELD_WIDTH) or array[neighbor[0]][neighbor[1]] not in valid:
+                    continue
+
+                if neighbor in close_set and tentative_g_score >= gscore[neighbor]:
+                    continue
+
+                if tentative_g_score < gscore[current] or neighbor not in [i[1] for i in oheap]:
+                    if array[neighbor[0]][neighbor[1]] == CELL_RHUBARB:
+                        tentative_g_score -= 0.75
+                    came_from[neighbor] = current
+
+                    gscore[neighbor] = tentative_g_score
+
+                    fscore[neighbor] = tentative_g_score + ((goal[0] - startPosi[0]) ** 2 + (goal[1] - startPosi[1]) ** 2) ** 0.5
+                    oheap.insert(0, (fscore[neighbor], neighbor))
+
+    @staticmethod
+    def getDirection(figure_position, target):
+        delta_x = figure_position[0] - target[0]
+        delta_y = figure_position[1] - target[1]
+        if delta_x == 0 and delta_y == 1:
+            return MOVE_LEFT
+        if delta_x == 0 and delta_y == -1:
+            return MOVE_RIGHT
+        if delta_x == 1 and delta_y == 0:
+            return MOVE_UP
+        if delta_x == -1 and delta_y == 0:
+            return MOVE_DOWN
